@@ -3,29 +3,37 @@ from django.http import HttpResponse
 from django.forms import inlineformset_factory
 from django.contrib.auth import authenticate,login,logout
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.models import Group
+from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 
 from .models import *
 from .forms import OrderForm,CreateUserForm
+from .decorators import unauthenticated_user,allowed_user,admin_only
 from .filters import OrderFilter
 
 
 # Create your views here.
 
+@unauthenticated_user
 def registerPage(request):
     form = CreateUserForm()
 
     if request.method == 'POST':
         form = CreateUserForm(request.POST)
         if form.is_valid():
-            form.save()
-            user = form.cleaned_data.get('username')
-            messages.success(request,"Account was created for " + user)
+            user = form.save()
+            username = form.cleaned_data.get('username')
+
+            group = Group.objects.get(name='customer')
+            user.groups.add(group)
+            
+            messages.success(request,"Account was created for " + username)
             #return redirect('login')
 
     context={'form':form}
     return render(request,'accounts/register.html',context)
-
+@unauthenticated_user
 def loginPage(request):
 
     if request.method == 'POST':
@@ -47,6 +55,8 @@ def logoutUser(request):
     logout(request)
     return redirect('login')
 
+@login_required(login_url='login')
+@admin_only
 def home(request):
     orders = Order.objects.all()
     customers = Customer.objects.all()
@@ -64,17 +74,17 @@ def home(request):
              }
     
     return render(request,'accounts/dashboard.html',context)
-
+@login_required(login_url='login')
 def products(request):
     products = Product.objects.all()
     
     context={'products':products}
     return render(request,'accounts/products.html',context)
-
+@login_required(login_url='login')
 def customers(request):
     context={}
     return render(request,'accounts/customer.html',context)
-
+@login_required(login_url='login')
 def customer(request,pk):
     customer = Customer.objects.get(id=pk)
 
@@ -89,7 +99,7 @@ def customer(request,pk):
              'orders_count':orders_count,'myFilter':myFilter,
              }
     return render(request,'accounts/customer.html',context)
-
+@login_required(login_url='login')
 def createOrder(request,pk):
     OrderFormSet = inlineformset_factory(Customer,Order,fields=('product','status'),extra=2)
     #extra 10 is list more 10 rows in the form.
@@ -117,7 +127,7 @@ def createOrder(request,pk):
     #context={'form':form}
     context={'formset':formset}
     return render(request,'accounts/createorder.html',context)
-
+@login_required(login_url='login')
 def updateOrder(request,pk):
 
     order = Order.objects.get(id=pk)
@@ -132,7 +142,7 @@ def updateOrder(request,pk):
     context={'form':form}
     return render(request,'accounts/createorder.html',context)
 
-
+@login_required(login_url='login')
 def deleteOrder(request,pk):
     order = Order.objects.get(id=pk)
 
@@ -143,6 +153,13 @@ def deleteOrder(request,pk):
     context={'order':order}
     return render(request,'accounts/deleteorder.html',context)
 
+
+@login_required(login_url='login')
+def userPage(request):
+    
+    
+    context={}
+    return render(request,'accounts/user.html',context)
     
     
 
